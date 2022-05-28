@@ -5,7 +5,7 @@ import LoadMore from './components/LoadMore';
 import ImageGallery from './components/ImageGallery';
 import ImageGalleryItem from './components/ImageGalleryItem';
 import Modal from './components/Modal';
-import { css } from '@emotion/react';
+// import { css } from '@emotion/react';
 import ClipLoader from 'react-spinners/ClipLoader';
 
 class SearchingImages extends Component {
