@@ -1,129 +1,117 @@
-import { Component } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Searchbar from './components/Searchbar';
 import searchQuery from '../shared/searchQuery';
 import LoadMore from './components/LoadMore';
 import ImageGallery from './components/ImageGallery';
 import ImageGalleryItem from './components/ImageGalleryItem';
 import Modal from './components/Modal';
-// import { css } from '@emotion/react';
+
 import ClipLoader from 'react-spinners/ClipLoader';
 
-class SearchingImages extends Component {
-  state = {
-    search: '',
-    status: 'idle',
-    error: null,
-    images: [],
-    total: 0,
-    page: 1,
-    isModalOpen: false,
-    modalImage: {
-      src: '',
-      alt: '',
-    },
-  };
-  async componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.search !== this.state.search ||
-      prevState.page !== this.state.page
-    ) {
-      if (this.state.status !== 'successfully loaded') {
-        this.setState({ status: 'loading' });
-      }
+const SearchingImages = () => {
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [images, setImages] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalImage, setModalImage] = useState({ src: '', alt: '' });
+  const isFirstRender = useRef(true);
+  const isImageArray = useRef(false);
 
-      try {
-        const { hits, total } = await searchQuery(
-          this.state.search,
-          this.state.page
-        );
-
-        this.setState(prevState => {
-          return {
-            images: [...prevState.images, ...hits],
-            status: total ? 'successfully loaded' : 'no images',
-            total,
-          };
-        });
-      } catch (error) {
-        this.setState({ error: error.message });
-      }
+  const onSubmit = searchArg => {
+    if (searchArg && searchArg !== search) {
+      setImages([]);
+      setSearch(searchArg.trim());
     }
-  }
-  onSubmit = search => {
-    this.setState({
-      images: [],
-      search: search.trim(),
-    });
   };
-  onLoadMore = () => {
-    const totalPages = Math.ceil(this.state.total / 12);
-    const { page } = this.state;
-
+  const onLoadMore = () => {
+    const totalPages = Math.ceil(total / 12);
     if (totalPages > 1 && page < totalPages) {
-      this.setState(prevState => {
-        return { page: prevState.page + 1 };
-      });
+      setPage(page + 1);
     }
   };
-  openModal = (itemImage, alt) => {
-    this.setState({
-      isModalOpen: true,
-      modalImage: {
-        src: itemImage,
-        alt,
-      },
-    });
+  const openModal = (itemImage, alt) => {
+    setIsModalOpen(true);
+    setModalImage({ src: itemImage, alt });
   };
-  closeModal = () => {
-    this.setState({
-      isModalOpen: false,
-      modalImage: '',
-    });
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalImage({});
   };
-  renderContent(status, images) {
-    if (status === 'loading' && !images.length) {
+  const renderContent = (statusArg, imagesArg) => {
+    if (statusArg === 'loading' && !imagesArg.length) {
       return (
         <div className="sweet-loading">
           <ClipLoader loading={true} color={'#000000'} size={50} />
         </div>
       );
     }
-    if (status === 'idle') {
+    if (statusArg === 'idle') {
       return <p>Pass the search</p>;
     }
-    if (status === 'successfully loaded' && images.length) {
+    if (statusArg === 'successfully loaded' && imagesArg.length) {
       return (
         <>
           <ImageGallery>
-            <ImageGalleryItem
-              openModal={this.openModal}
-              images={this.state.images}
-            />
+            <ImageGalleryItem openModal={openModal} images={imagesArg} />
           </ImageGallery>
-          <LoadMore onLoadMore={this.onLoadMore} />
+          <LoadMore onLoadMore={onLoadMore} />
         </>
       );
     }
-    if (status === 'no images') {
+    if (statusArg === 'error') {
+      return <p>{error}</p>;
+    }
+    if (statusArg === 'no images') {
       return <p>No images found</p>;
     }
-  }
-  render() {
-    const {
-      status,
-      images,
-      isModalOpen,
-      modalImage: { src, alt },
-    } = this.state;
-    return (
-      <>
-        <Searchbar onSubmit={this.onSubmit} />
-        {this.renderContent(status, images)}
-        {isModalOpen && (
-          <Modal image={src} alt={alt} closeModal={this.closeModal} />
-        )}
-      </>
-    );
-  }
-}
+  };
+  const fetchResult = useCallback(async () => {
+    const { hits, totalHits } = await searchQuery(search, page);
+    return { hits, totalHits };
+  }, [search, page]);
+
+  useEffect(() => {
+    if (!isFirstRender.current && search) {
+      if (!isImageArray.current) {
+        setStatus('loading');
+      }
+      fetchResult()
+        .then(({ hits, totalHits }) => {
+          if (!totalHits) setStatus('no images');
+          setImages(prevState => {
+            return [...prevState, ...hits];
+          });
+          setTotal(totalHits);
+          setStatus(() => (totalHits ? 'successfully loaded' : 'no images'));
+        })
+        .catch(error => {
+          setStatus('error');
+          setError(error.message);
+        });
+    } else {
+      isFirstRender.current = false;
+      setStatus('idle');
+    }
+  }, [fetchResult, search]);
+  useEffect(() => {
+    isImageArray.current = Boolean(images.length);
+  }, [images]);
+  return (
+    <>
+      <Searchbar onSubmit={onSubmit} />
+      {renderContent(status, images)}
+      {isModalOpen && (
+        <Modal
+          image={modalImage.src}
+          alt={modalImage.alt}
+          closeModal={closeModal}
+        />
+      )}
+    </>
+  );
+};
+
 export default SearchingImages;

@@ -15,10 +15,10 @@ async function searchQuery(q, page) {
       page,
     },
   });
-  
+
   return {
     hits: data.hits,
-    total: data.totalHits,
+    totalHits: data.totalHits,
   };
 }
 export default searchQuery;
