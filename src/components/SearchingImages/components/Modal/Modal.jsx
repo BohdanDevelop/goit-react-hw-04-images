@@ -14,7 +14,7 @@ const Modal = ({ image, alt, closeModal }) => {
       document.removeEventListener('keydown', escModal);
       console.log('removed');
     };
-  }, []);
+  }, [closeModal]);
   return createPortal(
     <div className={style.Overlay}>
       <div className={style.Modal}>
